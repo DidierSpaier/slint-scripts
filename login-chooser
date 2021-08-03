@@ -1,0 +1,198 @@
+#!/bin/sh
+# This script allows to choose the display manager in Slint among those
+# shipped, and to have speech or not at login in gdm and lightdm.
+# Please note that to have speech or not in graphical environments each
+# user should use either the orca-on or the orca-off command.
+# To have speech on the console use espeakup, fenrir or speechd-up."
+# They can be enabled with the switch-on utility.
+# Didier Spaier <didier~at~slint~dot~fr>  November 2017
+# Last updated on 21 March 2021
+export TEXTDOMAIN=scripts
+. gettext.sh
+if [ $(id -u) -ne 0 ]; then
+	echo "This script should be run as root."
+	exit
+fi
+# Just in case someone removes or adds a display manager
+[ ! -f /etc/rc.d/rc.4.local ] && echo "#/etc/rc.d/rc.4.local" > /etc/rc.d/rc.4.local
+liste="text "
+[ -x /usr/bin/lightdm ] && liste="${liste}lightdm "
+[ -x /usr/sbin/lxdm ] && liste="${liste}lxdm "
+[ -x /usr/bin/kdm ] && liste="${liste}kdm "
+[ -x /usr/bin/sddm ] && liste="${liste}sddm "
+[ -x /usr/sbin/gdm ] && liste="${liste}gdm "
+[ -x /usr/bin/xdm ] && liste="${liste}xdm "
+listew=" $liste"
+usage() {
+	echo
+	echo "Usage: login-chooser <login manager>"
+	echo "Available login managers:"
+	echo "$listew"
+	echo "Short descriptions:"
+	echo                            "text:    Login in text mode, in a console. From there, you"
+	echo                            "         can type \"startx\" to start a graphical session."
+	[ -x /usr/bin/lightdm ] && echo "lightdm: Light Display Manager, accessible with speech."
+	[ -x /usr/sbin/lxdm ] && echo   "lxdm:    LXDE Display Manager."
+	[ -x /usr/bin/kdm ] && echo     "kdm:     KDE Display Manager."
+	[ -x /usr/bin/sddm ] && echo    "sddm:    Simple Desktop Display Manager."
+	[ -x /usr/sbin/gdm ] && echo    "gdm:     GNOME Display Manager, fully accessible with speech."
+	[ -x /usr/bin/xdm ] && echo     "xdm:     X Display Manager."
+	if grep -q id:3:initdefault: /etc/inittab; then
+		echo "Login is currently set to text mode."
+	else
+		for dm in $liste; do
+			if grep -q "^#$dm$" /etc/rc.d/rc.4.local  && \
+			[ -x /etc/rc.d/rc.4.local ]; then
+				echo "The display manager ${dm} is currently set."
+				break
+			fi
+		done
+	fi
+exit
+}
+restartornot() {
+	echo "To reboot immediatly press R then Enter, else just press Enter."
+	read answer
+	if [ "$answer" = "r" ] || [ "answer" = "S" ]; then
+		shutdown -r now
+	fi
+}
+speak() {
+	echo "If you want speech at login press S then Enter, else just press Enter."
+	read sound
+	if [ "$sound" = "s" ] || [ "$sound" = "S" ]; then
+		echo "yes" > /etc/dm-speak
+		chmod 755 /etc/rc.d/rc.espeakup
+		if [ -f /etc/lightdm/lightdm-gtk-greeter.conf ]; then
+			(
+				cd /etc/lightdm
+				if ! grep -wq orca lightdm-gtk-greeter.conf; then
+					echo "reader = orca" >> lightdm-gtk-greeter.conf
+				fi
+				if ! grep -wq a11y-states lightdm-gtk-greeter.conf ; then
+					echo "a11y-states = +reader" >> lightdm-gtk-greeter.conf
+				elif ! grep -wq +reader lightdm-gtk-greeter.conf; then
+					sed "/^a11y-states/s/.*/&;+reader/" lightdm-gtk-greeter.conf > dummy
+					mv dummy lightdm-gtk-greeter.conf
+				fi
+			)
+		fi
+		echo "You will have speech at login."
+	else
+		rm -f /etc/dm-speak
+		chmod 644 /etc/rc.d/rc.espeakup
+		if [ -f /etc/lightdm/lightdm-gtk-greeter.conf ]; then
+			(
+				cd /etc/lightdm
+				sed /orca/d	lightdm-gtk-greeter.conf > dummy
+				mv dummy lightdm-gtk-greeter.conf
+			)
+		fi
+		echo "You won't have speech at login."
+	fi
+}
+[ $# -ne 1 ] && usage
+choice=$(echo $1|tr [:upper:] [:lower:])
+if [ "$(echo "$listew"|grep " $choice ")" = "" ]; then
+	echo "\"$1\" is not among the available login managers:"
+	echo "$listew"
+	exit
+fi
+case $choice in
+	text)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:3:initdefault:/" /etc/inittab.save > /etc/inittab
+		echo "Login will occur in text mode on next boot."
+		echo "If you need speech type one of these commands before rebooting:"
+		echo "switch-on espeakup"
+		echo "switch-on fenrir"
+		echo "switch-on speechd-up"
+		restartornot
+		;;
+	lightdm)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:4:initdefault:/" /etc/inittab.save > /etc/inittab
+		cat <<-"EOF" > /etc/rc.d/rc.4.local
+		#lightdm
+		if [ -x /usr/bin/lightdm ]; then
+			if [ -f /var/log/lightdm/startlightdm.log ]; then
+				mv /var/log/lightdm/startlightdm.log /var/log/lightdm/startlightdm.log.old
+			fi
+			exec /usr/bin/lightdm  2>/var/log/lightdm/startlightdm.log
+		fi
+		EOF
+		chmod 755 /etc/rc.d/rc.4.local
+		echo "The display manager $choice will be in use on next boot."
+		speak
+		restartornot
+		;;
+	lxdm)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:4:initdefault:/" /etc/inittab.save > /etc/inittab
+		cat <<-"EOF" > /etc/rc.d/rc.4.local
+		#lxdm
+		if [ -x /usr/sbin/lxdm ]; then
+		    exec /usr/sbin/lxdm -nodaemon
+		fi
+		EOF
+		chmod 755 /etc/rc.d/rc.4.local
+		echo "The display manager $choice will be in use on next boot."
+		restartornot
+		;;
+	kdm)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:4:initdefault:/" /etc/inittab.save > /etc/inittab
+		cat <<-"EOF" > /etc/rc.d/rc.4.local
+		#kdm
+		if [ -x /usr/bin/kdm ]; then
+		    exec /usr/bin/kdm -nodaemon
+		fi
+		EOF
+		chmod 755 /etc/rc.d/rc.4.local
+		echo "The display manager $choice will be in use on next boot."
+		restartornot
+		;;
+	sddm)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:4:initdefault:/" /etc/inittab.save > /etc/inittab
+		cat <<-"EOF" > /etc/rc.d/rc.4.local
+		#sddm
+		if [ -x /usr/bin/sddm ]; then
+		    exec /usr/bin/sddm
+		fi
+		EOF
+		chmod 755 /etc/rc.d/rc.4.local
+		echo "The display manager $choice will be in use on next boot."
+		restartornot
+		;;
+	gdm)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:4:initdefault:/" /etc/inittab.save > /etc/inittab
+		cat <<-"EOF" > /etc/rc.d/rc.4.local
+		#gdm
+		if [ -x /usr/sbin/gdm ]; then
+		    exec /usr/sbin/gdm -nodaemon
+		fi
+		EOF
+		chmod 755 /etc/rc.d/rc.4.local
+		echo "The display manager $choice will be in use on next boot."
+		speak
+		restartornot
+		;;
+	xdm)
+		cp /etc/inittab /etc/inittab.save
+		sed "/:initdefault:/s/.*/id:4:initdefault:/" /etc/inittab.save > /etc/inittab
+		cat <<-"EOF" > /etc/rc.d/rc.4.local
+		#xdm
+		if [ -x /usr/bin/xdm ]; then
+		    exec /usr/bin/xdm -nodaemon
+		fi
+		EOF
+		chmod 755 /etc/rc.d/rc.4.local
+		echo "The display manager $choice will be in use on next boot."
+		restartornot
+		;;
+	*)
+		echo "Unknown choice. Check your spelling."
+		;;
+esac

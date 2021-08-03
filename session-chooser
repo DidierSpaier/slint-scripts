@@ -1,0 +1,97 @@
+#!/bin/sh
+# This script sets the X session started with the startx command or
+# with a display manager, unless the session be set from the display
+# manager's greeter.
+# Tested with xdm, lightdm, lxdm, kdm and gdm2
+# Known issue: with some sessions xdm respawns
+# The script user-xsession.py needs accountsservice and is shipped in
+# the accountsservice package in Slint.
+
+if [ $(id -u) -eq 0 ]; then
+	echo "Running a graphical session as root is not allowed."
+	exit
+fi
+liste="$(ls /usr/share/xsessions/|sed s/.desktop//)"
+listew=". $liste ."
+
+usage() {
+	echo "Usage: $0 <desktop session>"
+	echo "Available desktop sessions:"
+	echo "$liste"
+	printf "The session is currently set for $USER to "
+	user_xsession.py --user-name $USER get
+exit
+}
+
+[ $# -ne 1 ] && usage
+
+if [ "$(echo $1|tr [:lower:] [:upper:])" = "LXDE" ]; then
+	thissession="LXDE"
+else
+	thissession=$(echo $1|tr [:upper:] [:lower:])
+fi
+
+if [ "$(echo $listew|grep " $thissession ")" = "" ]; then
+	echo "\"$1\" not found among the available sessions"
+	echo "$liste"
+	printf "The current session is "
+	user_xsession.py --user-name $USER get
+	exit
+fi
+
+user_xsession.py --user-name $USER set $thissession
+
+# This is for xdm
+case $thissession in
+	kde-plasma) session=/usr/bin/startkde;;
+	kde-plasma-safe) session="/usr/bin/startkde --failsafe";;
+	LXDE) session=/usr/bin/lxsession;;
+	gnome) session=/usr/bin/gnome-session;;
+	xfce) session=/usr/bin/startxfce4;;
+	icewm) session=/usr/bin/icewm-session;;
+	mate) session=/usr/bin/mate-session;;
+	wmaker) session=/usr/bin/startwmaker;;
+	e16) session=/usr/share/e16/misc/starte16;;
+	enlightenment) session=/usr/bin/enlightenment_start;;
+	blackbox) session=/usr/bin/startblackbox;;
+	fluxbox) session=/usr/bin/startfluxbox;;
+	twm) session=/usr/bin/starttwm;;
+	awesome) session=/usr/bin/awesome;;
+esac
+
+echo $session > $HOME/.xsession
+
+# This is for lxdm and gdm2.
+echo '[Desktop]' > $HOME/.dmrc
+echo "Session=$thissession" >> $HOME/.dmrc
+
+xsession=$thissession
+[ "$xsession" = "LXDE" ] && xsession=lxde
+[ "$xsession" = "kde-plasma" ] && xsession=kde
+[ "$xsession" = "kde-plasma-safe" ] && xsession=kde
+
+# This is mostly for startx , borrowed from xwmconfig.
+if [ -r /etc/X11/xinit/xinitrc.$xsession ]; then
+  if [ -r $HOME/.xinitrc ]; then
+    rm -f $HOME/.xinitrc-backup
+    mv $HOME/.xinitrc $HOME/.xinitrc-backup
+  fi
+  cat /etc/X11/xinit/xinitrc.$xsession > $HOME/.xinitrc
+# We need to run setxkbmap just after having started X, so that $DISPLAY
+# be set. But in some cases that is easier to do live than when building
+# the window manager or desktop.
+  case $thissession in
+  	mate) (cd $HOME
+		sed '/exec/i \
+/usr/bin/setxkbmap' .xinitrc > bof
+		mv bof .xinitrc
+		);;
+  	wmaker|twm|xfce|kde-plasma|kde-plasma-safe) (cd $HOME
+		sed '/DESKTOP_SESSION/i \
+/usr/bin/setxkbmap' .xinitrc > bof
+		mv bof .xinitrc
+		);;
+  esac
+fi
+
+echo "A default session $thissession has been set for ${USER}."

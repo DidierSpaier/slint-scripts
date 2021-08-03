@@ -1,0 +1,36 @@
+#!/bin/sh
+#  This script enable the orca screen reader for the user who runs it.
+if [ "$(id -u)" = "0" ]; then
+    echo "Start a graphical environment as root with speech is not advisable."
+    echo "Please run this script as regular user."
+    exit
+fi
+if [ -f ~/.profile ]; then
+	(cd ~
+	sed  "
+	/SAL_USE_VCLPLUGIN/d
+	/GNOME_ACCESSIBILITY/d
+	/GTK_MODULES/d
+	/QT_ACCESSIBILITY/d
+	/QT_LINUX_ACCESSIBILITY_ALWAYS_ON/d
+	/startx_output/d" .profile > .dummyprofile
+	mv .dummyprofile .profile
+	)
+fi
+	cat <<-EOF >>~/.profile
+	export SAL_USE_VCLPLUGIN="gtk"
+	export GTK_MODULES="gail:atk-bridge" # for GTK2
+	export GNOME_ACCESSIBILITY=1
+	export QT_ACCESSIBILITY=1 # for QT4
+	export QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 # for QT5
+	alias startx="/usr/bin/startx 1>.startx_output 2>.startx_errors"
+	EOF
+if [ -f ~/.config/autostart/startorca.desktop ]; then
+    (cd ~/.config/autostart/
+    sed -i "s/Hidden.*/Hidden=false/" startorca.desktop
+    )
+    gsettings set org.mate.interface accessibility true 2>/dev/null
+    echo "Orca has been enabled for user $(id -nu)."
+else
+    echo "File ~/.config/autostart/startorca.desktop not found."
+fi

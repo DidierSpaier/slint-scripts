@@ -1,0 +1,28 @@
+#!/bin/sh
+#  This script disable the orca screen reader for the user who runs it.
+if [ "$(id -u)" = "0" ]; then
+    echo "Please run this script as regular user."
+    exit
+fi
+if [ -f ~/.profile ]; then
+	(cd ~
+	sed  "
+	/SAL_USE_VCLPLUGIN/d
+	/GNOME_ACCESSIBILITY/d
+	/GTK_MODULES/d
+	/QT_ACCESSIBILITY/d
+	/QT_LINUX_ACCESSIBILITY_ALWAYS_ON/d
+	/startx_output/d" .profile > .dummyprofile
+	mv .dummyprofile .profile
+	)
+fi
+if [ -f ~/.config/autostart/startorca.desktop ]; then
+    (cd ~/.config/autostart/
+    sed -i "s/Hidden.*/Hidden=true/" startorca.desktop
+    )
+    gsettings set org.mate.interface accessibility false 2>/dev/null
+    echo "Orca has been disabled for user $(id -nu)."
+else
+    echo "File ~/.config/autostart/startorca.desktop not found."
+fi
+
