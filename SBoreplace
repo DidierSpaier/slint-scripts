@@ -7,17 +7,17 @@ s/jdk/openjdk/g
 s/six/python-six/g
 s/jack/jack-audio-connection-kit/g
 s/pygobject3-python3/py3gobject/g
-s/python3-Cython/Cython/
-s/Pygments/Pygments py2Pygments/
-s/docutils/docutils py2docutils/
-s/pyxdg/pyxdg py3xdg/
-s/lxml/python-lxml/
-s/Markdown/python-markdown python2-markdown/
-s/python3-pillow/python2-pillow python3-pillow/
-s/python-distutils-extra/python2-distutils-extra/
-s/gusersoundfont/soundfont-generaluser/
-s/python-distutils-extra/python2-distutils-extra python3-distutils-extra/
-s/purple-telegram/telegram-purple/
-s/tcl-tls/tls/
+s/python3-Cython/Cython/g
+s/Pygments/Pygments py2Pygments/g
+s/docutils/docutils py2docutils/g
+s/pyxdg/pyxdg py3xdg/g
+s/lxml/python-lxml/g
+s/Markdown/python-markdown python2-markdown/g
+s/python3-pillow/python2-pillow python3-pillow/g
+s/python-distutils-extra/python2-distutils-extra/g
+s/gusersoundfont/soundfont-generaluser/g
+s/python-distutils-extra/python2-distutils-extra python3-distutils-extra/g
+s/purple-telegram/telegram-purple/g
+s/tcl-tls/tls/g
 }' slackbuilds_data > bof
 mv bof slackbuilds_data
