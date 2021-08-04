@@ -3,8 +3,8 @@
 cd $BUILDDIR
 sed '
 /SLACKBUILD REQUIRES:/{
-s/ jdk /openjdk /g
-s/ jdk$/openjdk/g
+s/ jdk / openjdk /g
+s/ jdk$/ openjdk/g
 s/ six / python-six /g
 s/ six$/ python-six/g
 s/ python3-six/ python-six/g
