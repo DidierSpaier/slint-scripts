@@ -1,0 +1,59 @@
+#!/bin/sh
+STANDARDVOICES=$(espeak-ng --voices|sed "s?[ ]\{1,\}? ?g;s/File/Voice/;s,Age/Gender,Code,"|cut -d" " -f3-5|cut -d" " --complement -f 2)
+echo "$STANDARDVOICES"|column -t
+echo
+echo "To use one of theses voices with espeakup, set it in /etc/espeakup.conf."
+EXAMPLECODE=$(echo -e "$STANDARDVOICES"|sed -n '$p'|sed "s/ .*//")
+EXAMPLEVOICE=$(echo -e "$STANDARDVOICES"|sed -n '$p'|sed "s/.* //")
+echo "For instance, to use the voice \"$EXAMPLEVOICE\" write:"
+echo "voice=$EXAMPLECODE"
+echo "in /etc/espeakup.conf."
+echo
+read -p "Do yo want to list also the mbrola voices? [y/N] " ANSWER
+if [ "$ANSWER" = "y" ] || [ "$ANSWER" = "Y" ];  then
+	MBROLAVOICES=$(espeak-ng --voices=mb|sed "s, ,,;s;[ ]\{1,\};,;g"|cut -d, -f4-5|sed s,mb/,,)
+	for i in $(echo "$MBROLAVOICES"|sed "s/.*,mb-//;s/-.*//"|grep -v File); do
+		if [ "$(ls /usr/share/mbrola|grep $i)" = "" ]; then
+			MISSING="${MISSING}$(echo "$MBROLAVOICES"|grep $i)\n"
+			MBROLAVOICES=$(echo "$MBROLAVOICES"|grep -v $i)
+		fi
+	done
+	echo "Installed mbrola voices"
+	echo "$MBROLAVOICES"|sed "s/File/Voice/;s/Other/Name/"|while read i; do
+		F1=$(echo $i|cut -d, -f2)
+		F2=$(echo $i|cut -d, -f1)
+		echo "$F1 $F2"
+	done|column -t
+	EXAMPLECODE=$(echo -e "$MBROLAVOICES"|sed -n '$p'|sed "s/.*,//")
+	EXAMPLEVOICE=$(echo -e "$MBROLAVOICES"|sed -n '$p'|sed "s/,.*//")
+	echo
+	echo "For instance, to use the voice \"$EXAMPLEVOICE\" write:"
+	echo "voice=$EXAMPLECODE"
+	echo "in /etc/espeakup.conf."
+	if [ "$MISSING" = "" ]; then
+		exit
+	fi
+	echo
+	echo "Other mbrola voices could be used if installed."
+	read -p "Do yo want to display them? [Y/n] " ANSWER
+	if [ "$ANSWER" = "n" ] || [ "$ANSWER" = "n" ];  then
+		exit
+	fi
+	echo
+	MISSING="Voice,Code\n$(echo "$MISSING")"
+	echo -e "$MISSING"|sed "s/File/Voice/;s/Other/Name/"|while read i; do
+		F1=$(echo $i|cut -d, -f2)
+		F2=$(echo $i|cut -d, -f1)
+		echo "$F1 $F2"
+	done|column -t
+	MISSING=$(echo -e $MISSING|sed '$'d)
+	EXAMPLECODE=$(echo -e "$MISSING"|sed -n '$p'|sed "s/.*,//")
+	EXAMPLEVOICE=$(echo -e "$MISSING"|sed -n '$p'|sed "s/,.*//")
+	echo
+	echo "For instance, to use the voice \"$EXAMPLEVOICE\", type as root:"
+	echo "slapt-get -i mbrola-voice-$(echo $EXAMPLECODE|sed "s/.*-//")"
+	echo "then write:"
+	echo "voice=$EXAMPLECODE"
+	echo "in /etc/espeakup.conf."
+	echo
+fi
