@@ -1,4 +1,7 @@
-#!/bin/sh
+#! /bin/sh
+# This scripts handle discrepancies between SBo and Slint packages names.
+# It is run by remove-unwanted-slackbuilds_data, itself run after execution
+# of the command "slapt-src -u"
 . /etc/slapt-get/slapt-srcrc
 cd $BUILDDIR
 sed '
