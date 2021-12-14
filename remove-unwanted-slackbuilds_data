@@ -59,7 +59,7 @@ sed "
 /SLACKBUILD NAME:/N;N;N;N;N;N;N;N;N;N;N;s/\n//g
 " slackbuilds_data > merged_lines
 rm -f slackbuilds_data
-printf %b "s//\n/g" > expand_lines
+echo "s//\n/g" > expand_lines
 sed -f remove_unwanted -f expand_lines merged_lines > slackbuilds_data
 rm -f merged_lines expand_lines remove_unwanted
 
