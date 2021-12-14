@@ -9,20 +9,20 @@
 # It works as-is in a Slint system, needs adaptation elsewhere.
 
 if [ ! -f /etc/slapt-get/slapt-srcrc ]; then
-	echo "/etc/slapt-get/slapt-srcrc  not fpund.\nIs slapt-src installed?"
+	printf %b "/etc/slapt-get/slapt-srcrc not found.\nIs slapt-src installed?\n"
 	exit
 fi
 if [ ! -f /etc/slapt-get/slapt-getrc ]; then
-	echo "/etc/slapt-get/slapt-getrc  not fpund.\nIs slapt-get installed?"
+	printf %b "/etc/slapt-get/slapt-getrc not found.\nIs slapt-get installed?\n"
 	exit
 fi
 . /etc/slapt-get/slapt-srcrc
 . /etc/slapt-get/slapt-getrc
 # We need some time (about 30 seconds here) to run.
 echo "Please wait..."
-cd $BUILDDIR
+cd $BUILDDIR || exit
 if [ ! -f slackbuilds_data ]; then
-	echo "File slackbuilds_data not found.\nrun \"slapt-src -u\"."
+	printf %b "File slackbuilds_data not found.\nrun \"slapt-src -u\".\n"
 	exit
 fi
 
@@ -59,7 +59,7 @@ sed "
 /SLACKBUILD NAME:/N;N;N;N;N;N;N;N;N;N;N;s/\n//g
 " slackbuilds_data > merged_lines
 rm -f slackbuilds_data
-echo "s//\n/g" > expand_lines
+printf %b "s//\n/g" > expand_lines
 sed -f remove_unwanted -f expand_lines merged_lines > slackbuilds_data
 rm -f merged_lines expand_lines remove_unwanted
 
