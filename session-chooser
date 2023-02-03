@@ -2,96 +2,98 @@
 # This script sets the X session started with the startx command or
 # with a display manager, unless the session be set from the display
 # manager's greeter.
-# Tested with xdm, lightdm, lxdm, kdm and gdm2
-# Known issue: with some sessions xdm respawns
-# The script user-xsession.py needs accountsservice and is shipped in
 # the accountsservice package in Slint.
+# Written from scratch and dedicates to the public domain as stated in
+# https://unlicense.org/
+# Didier Spaier didieratslintdotfr  25 November 2017
 
-if [ $(id -u) -eq 0 ]; then
-	echo "Running a graphical session as root is not allowed."
+# Currently usable with lightdm or using startx but not using sddm.
+# 21 April 2022
+export TEXTDOMAIN=slint-scripts
+if [ "$(id -u)" -eq 0 ]; then
+	gettext "Running a graphical session as root is not allowed."; echo
 	exit
 fi
-liste="$(ls /usr/share/xsessions/|sed s/.desktop//)"
-listew=". $liste ."
 
-usage() {
-	echo "Usage: $0 <desktop session>"
-	echo "Available desktop sessions:"
-	echo "$liste"
-	printf "The session is currently set for $USER to "
-	user_xsession.py --user-name $USER get
-exit
+listesessions() {
+	cd /usr/share/xsessions || exit 1
+	for filename in *; do
+		name=$(printf '%s' "${filename%.*}")
+		[ "$name" = "z_plasma-safe" ] && name="plasma-safe"
+		echo $name
+	done|sort
 }
 
-[ $# -ne 1 ] && usage
+currentsession() {
+	if [ ! -f "$HOME/.dmrc" ]; then
+		gettext "Your default session is not set."; echo
+	else
+		gettext "Your session is currently set to"
+		name=$(sed -n "s@.*=@@;2p" "$HOME/.dmrc")
+		[ "$name" = "z_plasma-safe" ] && name="plasma-safe"
+		echo " ${name}."
+	fi
+}
 
-if [ "$(echo $1|tr [:lower:] [:upper:])" = "LXDE" ]; then
-	thissession="LXDE"
-else
-	thissession=$(echo $1|tr [:upper:] [:lower:])
-fi
+usage() {
+	gettext "Usage: session-chooser <desktop session>"; echo
+	gettext "Available desktop sessions:"; echo
+	listesessions
+	currentsession
+}
+ 
+[ $# -ne 1 ] && usage && exit
 
-if [ "$(echo $listew|grep " $thissession ")" = "" ]; then
-	echo "\"$1\" not found among the available sessions"
-	echo "$liste"
-	printf "The current session is "
-	user_xsession.py --user-name $USER get
-	exit
-fi
+session=$(echo "$1"|tr '[:upper:]' '[:lower:]')
 
-user_xsession.py --user-name $USER set $thissession
-
+[ "$session" = "plasma-safe" ] && session="z_plasma-safe"
 # This is for xdm
-case $thissession in
-	kde-plasma) session=/usr/bin/startkde;;
-	kde-plasma-safe) session="/usr/bin/startkde --failsafe";;
-	LXDE) session=/usr/bin/lxsession;;
-	gnome) session=/usr/bin/gnome-session;;
-	xfce) session=/usr/bin/startxfce4;;
-	icewm) session=/usr/bin/icewm-session;;
-	mate) session=/usr/bin/mate-session;;
-	wmaker) session=/usr/bin/startwmaker;;
-	e16) session=/usr/share/e16/misc/starte16;;
-	enlightenment) session=/usr/bin/enlightenment_start;;
-	blackbox) session=/usr/bin/startblackbox;;
-	fluxbox) session=/usr/bin/startfluxbox;;
-	twm) session=/usr/bin/starttwm;;
-	awesome) session=/usr/bin/awesome;;
+case $session in
+	plasma) xinit=kde;;
+	z_plasma-safe) xinit=kde;;
+	Lumina-DE) xinit=lumina;;
+	lxqt) xinit=lxqt;;
+	xfce) xinit=xfce;;
+	mate) xinit=mate;;
+	wmaker) xinit=wmaker;;
+	blackbox) xinit=blackbox;;
+	fvwm) xinit=fvwm2;;
+	fluxbox) xinit=fluxbox;;
+	ratpoison) xinit=ratpoison;;
+	i3) xinit=i3;;
+	*) printf '%s' "$session "
+	gettext "is not part of the available sessions:"; echo
+	listesessions
+	exit
 esac
 
-echo $session > $HOME/.xsession
+# This is for lightdm, kept to store then display the chosen session. 
+echo '[Desktop]' > "$HOME/.dmrc"
+echo "Session=$session" >> "$HOME/.dmrc"
 
-# This is for lxdm and gdm2.
-echo '[Desktop]' > $HOME/.dmrc
-echo "Session=$thissession" >> $HOME/.dmrc
+# This is for startx
+cp /etc/X11/xinit/xinitrc.$xinit "$HOME/.xinitrc"
+[ "$session" = "z_plasma-safe" ]  \
+&& \
+sed "s@startplasma-x11@startplasma-x11 --failsafe@" "$HOME/.xinitrc" > /tmp/.xinitrc \
+&& mv /tmp/.xinitrc "$HOME/.xinitrc"
 
-xsession=$thissession
-[ "$xsession" = "LXDE" ] && xsession=lxde
-[ "$xsession" = "kde-plasma" ] && xsession=kde
-[ "$xsession" = "kde-plasma-safe" ] && xsession=kde
-
-# This is mostly for startx , borrowed from xwmconfig.
-if [ -r /etc/X11/xinit/xinitrc.$xsession ]; then
-  if [ -r $HOME/.xinitrc ]; then
-    rm -f $HOME/.xinitrc-backup
-    mv $HOME/.xinitrc $HOME/.xinitrc-backup
-  fi
-  cat /etc/X11/xinit/xinitrc.$xsession > $HOME/.xinitrc
 # We need to run setxkbmap just after having started X, so that $DISPLAY
 # be set. But in some cases that is easier to do live than when building
-# the window manager or desktop.
-  case $thissession in
-  	mate) (cd $HOME
-		sed '/exec/i \
-/usr/bin/setxkbmap' .xinitrc > bof
-		mv bof .xinitrc
-		);;
-  	wmaker|twm|xfce|kde-plasma|kde-plasma-safe) (cd $HOME
-		sed '/DESKTOP_SESSION/i \
-/usr/bin/setxkbmap' .xinitrc > bof
-		mv bof .xinitrc
-		);;
-  esac
-fi
-
-echo "A default session $thissession has been set for ${USER}."
+# the window manager or desktop. 
+case $session in
+	lxqt|mate|ratpoison|xfce) (cd "$HOME" || exit 1
+		sed "/exec/i \
+/usr/bin/setxkbmap" .xinitrc > bof
+		mv bof .xinitrc);;
+  	*) (cd "$HOME" || exit 1
+	sed "/DESKTOP_SESSION/i \
+/usr/bin/setxkbmap" .xinitrc > bof
+		mv bof .xinitrc)
+esac
+case $session in
+	z_plasma-safe) displayedsession=plasma-safe;;
+	*) displayedsession=$session
+esac
+gettext  "Your default session has been set to"
+echo " ${displayedsession}."
