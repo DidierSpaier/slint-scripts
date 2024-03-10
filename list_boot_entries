@@ -64,4 +64,4 @@ elif command -v less >/dev/null; then
     less /tmp/list_boot_entries
 else cat /tmp/list_boot_entries
 fi
-mv /tmp/list_boot_entries /home/didier/Téléchargements
+rm /tmp/list_boot_entries
