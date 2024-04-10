@@ -1,6 +1,6 @@
 #!/bin/sh
 # Public domain
-# Initilaly wriiten by Didier Spaier diideratslintdotfr
+# Initially written by Didier Spaier diideratslintdotfr
 # shellcheck disable=SC2009
 export TEXTDOMAIN=slint-scripts
 to_lower() {
